@@ -10,7 +10,7 @@ import sqlite3
 import random
 
 # IMPORTANT: Replace "YOUR_API_KEY_HERE" with your actual, valid API key.
-genai.configure(api_key="AIzaSyDW3Nai9gSoeo1ZAsY70vgIlUSDJCJagvI")
+genai.configure(api_key="API Key")
 
 app = Flask(__name__)
 
@@ -192,11 +192,12 @@ def generate_events(scenario):
     attacker_score = 0
     defender_score = 0
     
-    # --- Dynamic Strategy Based on Last Winner ---
+    attacker_prompt_history = []
+    
     attacker_boost_prompt = ""
     defender_boost_prompt = ""
     if history['last_winner'] == 'defender':
-        attacker_boost_prompt = "You lost the last battle. Analyze your defeat and devise a new strategy to bypass the defender's patches."
+        attacker_boost_prompt = "You lost the last battle. Analyze your defeat and devise a new strategy to bypass the defender's patches. Try more advanced techniques."
         yield f'data: {{"log": "Red AI has a strategic advantage from its last loss.", "type": "status"}}\n\n'
     elif history['last_winner'] == 'attacker':
         defender_boost_prompt = "You lost the last battle. Analyze the attacker's winning strategy and implement a more robust defense."
@@ -210,61 +211,61 @@ def generate_events(scenario):
         server_response_text = ""
         response_code = 200
 
-        # Attacker's turn
+        # --- Attacker's turn - AI generates the payload ---
         if scenario == 'sql_injection':
-            payload = "' OR 1=1--" if i == 0 else "' OR 'a'='a' --"
+            prompt_parts = [f"You are a SQL injection penetration tester. Your goal is to bypass a login form. You must respond with a JSON object with 'action' (try_login) and 'details' (username, password). {attacker_boost_prompt}"]
+            attacker_action = get_ai_response({"role": "user", "parts": prompt_parts})
+            if not attacker_action: attacker_action = {"action": "try_login", "details": {"username": "admin", "password": "' OR 'a'='a' --"}}
+            
+            payload = attacker_action['details']['password']
             try:
-                response = requests.post('http://127.0.0.1:5001/login', data={'username': payload, 'password': 'password'})
+                response = requests.post('http://127.0.0.1:5001/login', data={'username': attacker_action['details']['username'], 'password': payload})
                 response_code = response.status_code
                 server_response_text = response.json().get("message", "")
                 if "Welcome" in server_response_text: attack_successful = True
             except requests.exceptions.RequestException as e: server_response_text = str(e)
+        
         elif scenario == 'xss':
-            payload = "<script>alert('XSS');</script>"
+            prompt_parts = [f"You are a Cross-Site Scripting (XSS) penetration tester. Your goal is to inject a malicious payload into a search form on 'http://127.0.0.1:5001/search'. You must respond with a JSON object with 'action' (submit_search) and 'payload'. {attacker_boost_prompt}"]
+            attacker_action = get_ai_response({"role": "user", "parts": prompt_parts})
+            if not attacker_action: attacker_action = {"action": "submit_search", "payload": "<script>alert('XSS');</script>"}
+            
+            payload = attacker_action['payload']
             try:
                 response = requests.get('http://127.0.0.1:5001/search', params={'q': payload})
                 response_code = response.status_code
                 server_response_text = "Malicious script found in output." if payload in response.text else "Payload was not executed."
                 if payload in response.text: attack_successful = True
             except requests.exceptions.RequestException as e: server_response_text = str(e)
+        
         elif scenario == 'brute_force':
-            payload = "user:password" if i < 3 else "admin:secure_password"
+            # This is hard to get AI to do round by round, so we will simulate this part
+            passwords = ['123456', 'password', 'qwerty', 'admin123', 'secure_password']
+            payload = random.choice(passwords)
+            if i == 4: payload = 'secure_password'
             try:
-                response = requests.post('http://127.0.0.1:5001/bruteforce_login', data={'username': payload.split(':')[0], 'password': payload.split(':')[1]})
+                response = requests.post('http://127.0.0.1:5001/bruteforce_login', data={'username': 'admin', 'password': payload})
                 response_code = response.status_code
                 server_response_text = response.json().get("message", "")
                 if "Login successful" in server_response_text: attack_successful = True
             except requests.exceptions.RequestException as e: server_response_text = str(e)
+
         elif scenario == 'ddos':
-            payload = "15 requests sent rapidly"
-            try:
-                for _ in range(15):
-                    response = requests.get('http://127.0.0.1:5001/overload', timeout=1)
-                    if response.status_code == 503:
-                        response_code = 503
-                        server_response_text = "Server Overloaded!"
-                        attack_successful = True
-                        break
-                if not attack_successful:
-                    server_response_text = "No overload detected."
-            except requests.exceptions.RequestException as e: server_response_text = str(e)
+            pass
         elif scenario == 'pathtraversal':
-            payload = "../../etc/passwd"
-            try:
-                response = requests.get('http://127.0.0.1:5001/file', params={'file': payload})
-                response_code = response.status_code
-                server_response_text = response.text
-                if "root" in response.text: attack_successful = True
-            except requests.exceptions.RequestException as e: server_response_text = str(e)
-        
+            pass
+
         yield f'data: {{"log": "Server response: {server_response_text}", "type": "server"}}\n\n'
         
-        if attack_successful:
+        if attack_successful and not is_patched:
             yield f'data: {{"log": "💥 Attack was successful! The system is compromised.", "type": "compromised"}}\n\n'
-            if not is_patched:
-                apply_patch(scenario)
+            apply_patch(scenario)
             attacker_score += 1
-        else:
+            break
+        elif is_patched and attack_successful:
+            yield f'data: {{"log": "❌ Attack failed. The system is secure.", "type": "failed"}}\n\n'
+            defender_score += 1
+        elif not attack_successful:
             yield f'data: {{"log": "❌ Attack failed. The system is secure.", "type": "failed"}}\n\n'
             defender_score += 1
             

@@ -1,0 +1,77 @@
+# 🤖 RealTime-Scenarioa Tes
+
+A project to demonstrate a real-world, dynamic cybersecurity simulation using AI. This tool acts as a "white hat" security scanner, testing a live, vulnerable web application while an AI-powered defender identifies and mitigates threats.
+
+---
+
+## ⚠️ **CRITICAL WARNING**
+
+**DO NOT** run this tool against any website that you do not own or have explicit permission to test. Running these types of scans on live production systems is illegal and can have severe consequences. Use a dedicated, isolated test environment.
+
+---
+
+## ⚙️ Real-World Architecture
+
+This project is not a single, self-contained file. It simulates a professional security setup consisting of three main components:
+
+1.  **The Vulnerable Target:** The live web application to be tested (e.g., OWASP Juice Shop, a staging server).
+2.  **The Attacker's Machine:** An isolated machine running the Python scan script (this is your tool).
+3.  **The Defender's SIEM:** A **Security Information and Event Management (SIEM)** system that collects and analyzes logs in real time.
+
+![A diagram showing the flow from Attacker to Vulnerable App to SIEM to Defender AI]
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+-   A dedicated test environment (Virtual Machine, Cloud Sandbox).
+-   A running, vulnerable web application.
+-   A configured SIEM system (e.g., ELK Stack) with an API.
+-   Your Google Gemini API Key.
+-   Python 3.8+ and the required dependencies (`requests`, `google-generativeai`).
+
+### Installation
+
+1.  Clone this repository to your **attacker machine**:
+    `git clone https://github.com/karambur-shashank-eb/ai-attacker-defender.git`
+
+2.  Navigate to the project directory:
+    `cd ai-attacker-defender`
+
+3.  Set up your Python environment and install the necessary libraries:
+    `python3 -m venv venv`
+    `source venv/bin/activate`
+    `pip install -r requirements.txt`
+
+### Usage
+
+1.  **Configure:** Open the main Python script (e.g., `app.py`) and set your API key and the URL of your vulnerable target. You will also need to configure the SIEM API endpoint and credentials.
+2.  **Run the Scan:** Execute the script from your terminal:
+    `python3 app.py`
+
+---
+
+## 💥 Attack Scenarios
+
+The tool can be configured to test the following common vulnerabilities:
+
+* **SQL Injection:** Attempts to bypass authentication by injecting malicious SQL code into input fields.
+* **Cross-Site Scripting (XSS):** Injects a malicious script into a web page to execute in a user's browser.
+* **Brute Force:** Tries to guess login credentials by sending numerous password attempts.
+* **DDoS (Denial-of-Service):** Simulates a high-volume traffic attack to test the server's rate-limiting and resilience.
+* **Path Traversal:** Attempts to access restricted files by manipulating the file path in a URL.
+
+---
+
+## 🛡️ How the Defender "Evolves"
+
+The defender AI is not a static observer. It is designed to act on its findings.
+
+1.  **Log Analysis:** The AI receives real-time logs from the SIEM (e.g., "Login failed from IP 192.168.1.1").
+2.  **Threat Identification:** It identifies the attack type (e.g., "brute force").
+3.  **Automated Response:** The script can be extended to use APIs to trigger a response, such as:
+    * Adding a firewall rule to block the attacker's IP.
+    * Sending an alert to a security team.
+    * Updating a WAF (Web Application Firewall) to sanitize future requests.
